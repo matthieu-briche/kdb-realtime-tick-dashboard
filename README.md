@@ -46,7 +46,7 @@ flowchart LR
 **Requirements:** kdb+ 4.x or KDB-X with a valid licence (the free personal/community licence is enough), `q` on your `PATH`, Linux or macOS (Windows: use WSL).
 
 ```bash
-git clone https://github.com/<your-user>/kdb-realtime-tick-dashboard.git
+git clone https://github.com/matthieu-briche/kdb-realtime-tick-dashboard.git
 cd kdb-realtime-tick-dashboard
 ./scripts/start.sh
 ```
