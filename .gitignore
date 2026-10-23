@@ -1,0 +1,15 @@
+# runtime data
+db/
+tplogs/
+logs/
+*.pid
+
+# kdb+ licence files: never commit them
+*.lic
+k4.lic
+kc.lic
+
+# OS / editors
+.DS_Store
+.vscode/
+.idea/
