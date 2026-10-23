@@ -4,7 +4,6 @@
 / Subscribes to all tables on the tickerplant, keeps today's ticks in memory,
 / replays the tickerplant log on start-up, and writes the day to the HDB at
 / end of day.
-/
 / usage:  q src/rdb.q -p 5011 [-tp 5010] [-hdb 5012] [-hdbdir db]
 / =============================================================================
 

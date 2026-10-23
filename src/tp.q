@@ -3,9 +3,7 @@
 / -----------------------------------------------------------------------------
 / Receives ticks from feed handlers, stamps them, writes every message to a
 / daily log file (for recovery) and publishes them to subscribers.
-/
 / usage:  q src/tp.q -p 5010 [-schema schema/sym.q] [-logdir tplogs]
-/
 / API exposed to clients:
 /   .u.upd[t;x]   publish rows x into table t   (called by feed handlers)
 /   .u.sub[t;s]   subscribe to table t (` = all) for syms s (` = all)

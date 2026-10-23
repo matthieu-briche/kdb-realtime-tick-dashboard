@@ -3,7 +3,6 @@
 / -----------------------------------------------------------------------------
 / Serves the date-partitioned tick history written by the RDB at end of day.
 / The RDB sends "\l ." after each write-down, so new days appear automatically.
-/
 / usage:  q src/hdb.q -p 5012 [-hdbdir db]
 / =============================================================================
 

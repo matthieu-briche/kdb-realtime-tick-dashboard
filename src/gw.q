@@ -5,7 +5,6 @@
 /   * q IPC     -> KX Dashboards, PyKX, q clients call getBars[], getStats[] ...
 /   * HTTP      -> serves the web dashboard from ./web  (http://host:port/index.html)
 /   * WebSocket -> pushes a JSON snapshot to every browser every -push ms
-/
 / usage:  q src/gw.q -p 5020 [-rdb 5011] [-rte 5013] [-hdb 5012] [-push 500] [-web web]
 / =============================================================================
 
