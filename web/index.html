@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kdb+ Tick Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f5f7; --panel: #ffffff; --panel-2: #f8f9fb; --border: #e1e4ea;
+    --text: #141821; --muted: #6a7282; --faint: #9aa1ad;
+    --accent: #2f6fe4; --up: #0f9d6b; --down: #d6334a; --vwap: #c98a00;
+    --grid: #eceef2; --up-soft: rgba(15,157,107,.12); --down-soft: rgba(214,51,74,.12);
+    --sans: "IBM Plex Sans", system-ui, -apple-system, Segoe UI, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0a0d13; --panel: #10141c; --panel-2: #141924; --border: #1f2633;
+      --text: #dde2ea; --muted: #7d8697; --faint: #4f5767;
+      --accent: #5b93ff; --up: #2ebd85; --down: #f6465d; --vwap: #e0a526;
+      --grid: #171d28; --up-soft: rgba(46,189,133,.14); --down-soft: rgba(246,70,93,.14);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0a0d13; --panel: #10141c; --panel-2: #141924; --border: #1f2633;
+    --text: #dde2ea; --muted: #7d8697; --faint: #4f5767;
+    --accent: #5b93ff; --up: #2ebd85; --down: #f6465d; --vwap: #e0a526;
+    --grid: #171d28; --up-soft: rgba(46,189,133,.14); --down-soft: rgba(246,70,93,.14);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 13px/1.4 var(--sans); min-height: 100vh; }
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .up { color: var(--up); } .down { color: var(--down); } .muted { color: var(--muted); }
+
+  header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--panel); position: sticky; top: 0; z-index: 5; }
+  .brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+  .brand h1 { font-size: 15px; font-weight: 600; margin: 0; letter-spacing: .2px; white-space: nowrap; }
+  .brand span { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .hstats { margin-left: auto; display: flex; gap: 18px; align-items: center; color: var(--muted); font-size: 12px; }
+  .hstats b { color: var(--text); font-weight: 500; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); font: 500 11px var(--mono); letter-spacing: .6px; }
+  .pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+  .pill.live i { background: var(--up); box-shadow: 0 0 0 3px var(--up-soft); animation: pulse 1.6s infinite; }
+  .pill.demo i { background: var(--vwap); }
+  .pill.down i { background: var(--down); }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .icon-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: 4px 8px; cursor: pointer; font: 12px var(--sans); }
+  .icon-btn:hover { color: var(--text); }
+
+  main { padding: 16px 20px 24px; display: grid; gap: 14px; max-width: 1600px; margin: 0 auto; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { border: 1px solid var(--border); background: var(--panel); color: var(--muted); padding: 5px 11px; border-radius: 6px; cursor: pointer; font: 500 12px var(--mono); }
+  .chip:hover { color: var(--text); }
+  .chip.on { color: var(--text); border-color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
+  .seg { margin-left: auto; display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--panel); }
+  .seg button { border: 0; background: none; color: var(--muted); padding: 5px 11px; cursor: pointer; font: 500 12px var(--mono); }
+  .seg button + button { border-left: 1px solid var(--border); }
+  .seg button.on { background: var(--panel-2); color: var(--text); }
+
+  .kpis { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 10px; }
+  .kpi { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; min-width: 0; }
+  .kpi label { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .7px; margin-bottom: 4px; }
+  .kpi .v { font: 500 20px var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kpi .s { color: var(--muted); font: 11px var(--mono); margin-top: 2px; white-space: nowrap; }
+
+  .grid { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); gap: 14px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; min-width: 0; display: flex; flex-direction: column; }
+  .panel > h2 { margin: 0; padding: 10px 14px; font-size: 12px; font-weight: 600; letter-spacing: .4px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+  .panel > h2 small { color: var(--muted); font-weight: 400; font-family: var(--mono); }
+  .panel > h2 .r { margin-left: auto; }
+  .chart-wrap { position: relative; height: 430px; }
+  #chart { width: 100%; height: 100%; display: block; cursor: crosshair; }
+  .legend { position: absolute; top: 8px; left: 12px; font: 11px var(--mono); color: var(--muted); pointer-events: none; display: flex; gap: 12px; flex-wrap: wrap; }
+  .legend b { color: var(--text); font-weight: 500; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 6px 10px; text-align: right; white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; position: sticky; top: 0; background: var(--panel); border-bottom: 1px solid var(--border); }
+  th:first-child, td:first-child { text-align: left; }
+  td { font: 12px var(--mono); font-variant-numeric: tabular-nums; border-bottom: 1px solid var(--grid); }
+  tbody tr:last-child td { border-bottom: 0; }
+  #watch tbody tr { cursor: pointer; }
+  #watch tbody tr:hover td { background: var(--panel-2); }
+  #watch tbody tr.sel td { background: var(--panel-2); }
+  #watch tbody tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+  td.flash-up { animation: fu .7s ease-out; } td.flash-down { animation: fd .7s ease-out; }
+  @keyframes fu { from { background: var(--up-soft); } } @keyframes fd { from { background: var(--down-soft); } }
+  .scroll { overflow: auto; }
+  .tape { max-height: 320px; }
+
+  .bars { padding: 10px 14px 14px; display: grid; gap: 9px; }
+  .brow { display: grid; grid-template-columns: 56px 1fr 84px; gap: 10px; align-items: center; font: 12px var(--mono); }
+  .btrack { height: 10px; background: var(--panel-2); border-radius: 3px; overflow: hidden; }
+  .bfill { height: 100%; background: var(--accent); border-radius: 3px; transition: width .4s ease; }
+  .brow .bv { text-align: right; color: var(--muted); }
+  .side-buy { color: var(--up); } .side-sell { color: var(--down); }
+  .empty { padding: 24px; text-align: center; color: var(--muted); }
+
+  footer { color: var(--faint); font-size: 11px; text-align: center; padding: 0 20px 20px; }
+
+  @media (max-width: 1100px) {
+    .kpis { grid-template-columns: repeat(3, minmax(0,1fr)); }
+    .grid { grid-template-columns: minmax(0,1fr); }
+  }
+  @media (max-width: 640px) {
+    header { padding: 10px 16px; flex-wrap: wrap; }
+    .brand span, .hstats .opt { display: none; }
+    main { padding: 12px 16px 20px; }
+    .kpis { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .chart-wrap { height: 320px; }
+    .seg { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1>kdb+ Real-Time Tick Dashboard</h1>
+    <span>tickerplant · rdb · rte · hdb</span>
+  </div>
+  <div class="hstats">
+    <span class="opt">ticks/s <b class="num" id="tps">–</b></span>
+    <span class="opt">updates <b class="num" id="ups">0</b></span>
+    <span class="num" id="clock">--:--:--</span>
+    <span class="pill" id="status"><i></i><span id="statusTxt">CONNECTING</span></span>
+    <button class="icon-btn" id="themeBtn" title="Toggle theme">◐</button>
+  </div>
+</header>
+
+<main>
+  <div class="toolbar">
+    <div class="chips" id="chips"></div>
+    <div class="seg" id="barSeg">
+      <button data-bar="1">1s</button><button data-bar="5" class="on">5s</button><button data-bar="15">15s</button><button data-bar="60">1m</button>
+    </div>
+  </div>
+
+  <section class="kpis">
+    <div class="kpi"><label>Last</label><div class="v" id="kLast">–</div><div class="s" id="kSym">–</div></div>
+    <div class="kpi"><label>Change</label><div class="v" id="kChg">–</div><div class="s" id="kOpen">open –</div></div>
+    <div class="kpi"><label>VWAP</label><div class="v" id="kVwap">–</div><div class="s" id="kVwapD">vs last –</div></div>
+    <div class="kpi"><label>Day range</label><div class="v" id="kRange">–</div><div class="s" id="kRangeS">–</div></div>
+    <div class="kpi"><label>Volume</label><div class="v" id="kVol">–</div><div class="s" id="kTrades">– trades</div></div>
+    <div class="kpi"><label>Spread</label><div class="v" id="kSpread">–</div><div class="s" id="kBook">–</div></div>
+  </section>
+
+  <section class="grid">
+    <div class="panel">
+      <h2>Price <small id="chartTitle">–</small><small class="r" id="chartInfo">OHLCV · session VWAP</small></h2>
+      <div class="chart-wrap">
+        <canvas id="chart"></canvas>
+        <div class="legend" id="legend"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Market watch <small class="r">click a row to chart it</small></h2>
+      <div class="scroll">
+        <table id="watch">
+          <thead><tr><th>Sym</th><th>Last</th><th>Chg %</th><th>VWAP</th><th>Bid</th><th>Ask</th><th>Sprd bp</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid">
+    <div class="panel">
+      <h2>Time &amp; sales <small class="r">latest 40 prints · all symbols</small></h2>
+      <div class="scroll tape">
+        <table id="tape">
+          <thead><tr><th>Time</th><th>Sym</th><th>Side</th><th>Price</th><th>Size</th><th>Notional</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Notional traded <small class="r">since the open</small></h2>
+      <div class="bars" id="notional"></div>
+    </div>
+  </section>
+</main>
+<footer>Data served by kdb+/q through the gateway WebSocket · <span id="modeNote">–</span></footer>
+
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const state = { sym: null, bar: 5, snap: null, mode: 'connecting', ws: null, everConnected: false,
+                  updates: 0, prevLast: {}, lastTrades: null, lastTradesAt: 0, hover: -1 };
+
+  // ---------- formatting ----------
+  const fx = (v, d = 2) => (v == null || !isFinite(v)) ? '–' : Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const compact = v => {
+    if (v == null || !isFinite(v)) return '–';
+    const a = Math.abs(v);
+    if (a >= 1e9) return (v / 1e9).toFixed(2) + 'B';
+    if (a >= 1e6) return (v / 1e6).toFixed(2) + 'M';
+    if (a >= 1e3) return (v / 1e3).toFixed(1) + 'K';
+    return String(Math.round(v));
+  };
+  const signed = (v, d = 2) => (v == null || !isFinite(v)) ? '–' : (v > 0 ? '+' : '') + v.toFixed(d);
+  const cls = v => v > 0 ? 'up' : v < 0 ? 'down' : '';
+  const pad = n => String(n).padStart(2, '0');
+  const msToTime = (ms, withMs = true) => {
+    const h = Math.floor(ms / 3600000), m = Math.floor(ms / 60000) % 60, s = Math.floor(ms / 1000) % 60;
+    return `${pad(h)}:${pad(m)}:${pad(s)}` + (withMs ? '.' + String(Math.floor(ms % 1000)).padStart(3, '0') : '');
+  };
+  const msOfDay = () => { const d = new Date(); return d - new Date(d).setHours(0, 0, 0, 0); };
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  // ---------- status ----------
+  function setStatus(mode) {
+    state.mode = mode;
+    const el = $('status');
+    el.className = 'pill ' + (mode === 'live' ? 'live' : mode === 'demo' ? 'demo' : mode === 'down' ? 'down' : '');
+    $('statusTxt').textContent = { live: 'LIVE', demo: 'DEMO', down: 'RECONNECTING', connecting: 'CONNECTING' }[mode];
+    $('modeNote').textContent = mode === 'demo'
+      ? 'demo mode: simulated in the browser (start the q stack for live data)'
+      : 'live mode: ' + location.host;
+  }
+
+  // ---------- live connection to the kdb+ gateway ----------
+  function sendPrefs() {
+    if (state.ws && state.ws.readyState === 1) state.ws.send(JSON.stringify({ sym: state.sym || '', bar: state.bar }));
+  }
+  function connect() {
+    setStatus(state.everConnected ? 'down' : 'connecting');
+    let ws;
+    try { ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host); }
+    catch (e) { return startDemo(); }
+    state.ws = ws;
+    const giveUp = setTimeout(() => { if (!state.everConnected) { ws.close(); startDemo(); } }, 2500);
+    ws.onopen = () => { clearTimeout(giveUp); state.everConnected = true; setStatus('live'); sendPrefs(); };
+    ws.onmessage = ev => { try { const m = JSON.parse(ev.data); if (m.type === 'snapshot') render(m); } catch (e) { console.error(e); } };
+    ws.onclose = () => {
+      clearTimeout(giveUp);
+      if (state.mode === 'demo') return;
+      if (state.everConnected) { setStatus('down'); setTimeout(connect, 2000); } else startDemo();
+    };
+  }
+
+  // ---------- in-browser simulator (same snapshot shape as the gateway) ----------
+  const sim = {
+    syms: ['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'TSLA', 'JPM'],
+    ref: { AAPL: 230, MSFT: 430, NVDA: 180, AMZN: 220, GOOGL: 250, META: 700, TSLA: 450, JPM: 300 },
+    px: {}, trades: [], stats: {}, top: {}
+  };
+  const gauss = () => Math.sqrt(-2 * Math.log(1 - Math.random())) * Math.cos(2 * Math.PI * Math.random());
+  const r2 = x => Math.round(x * 100) / 100;
+  function simTick(t) {
+    const n = 1 + Math.floor(Math.random() * 15);
+    for (let k = 0; k < n; k++) {
+      const s = sim.syms[Math.floor(Math.random() * sim.syms.length)];
+      const p = r2(sim.px[s] * Math.exp(0.0003 * gauss()));
+      sim.px[s] = p;
+      const size = 100 * (1 + Math.floor(Math.random() * 10));
+      const side = Math.random() < 0.5 ? 'buy' : 'sell';
+      sim.trades.push({ t, sym: s, price: p, size, side });
+      const st = sim.stats[s] || (sim.stats[s] = { sym: s, open: p, high: p, low: p, lastPx: p, volume: 0, notional: 0, trades: 0 });
+      st.high = Math.max(st.high, p); st.low = Math.min(st.low, p); st.lastPx = p;
+      st.volume += size; st.notional += p * size; st.trades += 1; st.updTime = msToTime(t);
+      const hs = Math.max(0.01, r2(p * 0.0001 * (1 + Math.floor(Math.random() * 3))));
+      const bid = r2(p - hs), ask = r2(p + hs);
+      sim.top[s] = { sym: s, bid, ask, bsize: 100 * (1 + Math.floor(Math.random() * 50)), asize: 100 * (1 + Math.floor(Math.random() * 50)),
+                     mid: (bid + ask) / 2, spreadBps: 1e4 * (ask - bid) / ((bid + ask) / 2), updTime: msToTime(t) };
+    }
+    if (sim.trades.length > 80000) sim.trades.splice(0, sim.trades.length - 60000);
+  }
+  function simSnapshot() {
+    const stats = sim.syms.filter(s => sim.stats[s]).map(s => {
+      const x = sim.stats[s];
+      return { ...x, vwap: x.notional / x.volume, chgPct: 100 * (x.lastPx - x.open) / x.open };
+    });
+    const top = sim.syms.filter(s => sim.top[s]).map(s => sim.top[s]);
+    const tape = sim.trades.slice(-40).reverse().map(x => ({ time: msToTime(x.t), sym: x.sym, price: x.price, size: x.size, side: x.side }));
+    const sym = state.sym || sim.syms[0], bsec = state.bar, map = new Map();
+    for (const x of sim.trades) {
+      if (x.sym !== sym) continue;
+      const b = Math.floor(x.t / 1000 / bsec) * bsec;
+      let o = map.get(b);
+      if (!o) { o = { bar: msToTime(b * 1000, false), t: b * 1000, open: x.price, high: x.price, low: x.price, close: x.price, volume: 0, pv: 0, trades: 0 }; map.set(b, o); }
+      o.high = Math.max(o.high, x.price); o.low = Math.min(o.low, x.price); o.close = x.price;
+      o.volume += x.size; o.pv += x.price * x.size; o.trades++;
+    }
+    const bars = [...map.values()].slice(-300).map(o => ({ ...o, vwap: o.pv / o.volume }));
+    return { type: 'snapshot', time: msToTime(msOfDay()), sym, bar: bsec, top, stats, tape, bars };
+  }
+  let demoTimers = [];
+  function startDemo() {
+    if (state.mode === 'demo') return;
+    setStatus('demo');
+    sim.syms.forEach(s => sim.px[s] = sim.ref[s]);
+    const now = msOfDay();
+    for (let t = Math.max(0, now - 300000); t < now; t += 100) simTick(t);   // 5 minutes of history
+    demoTimers.push(setInterval(() => simTick(msOfDay()), 100));
+    demoTimers.push(setInterval(() => render(simSnapshot()), 500));
+    render(simSnapshot());
+  }
+
+  // ---------- rendering ----------
+  function render(m) {
+    state.snap = m;
+    state.updates++;
+    if (!state.sym && m.sym) state.sym = m.sym;
+    $('ups').textContent = state.updates.toLocaleString('en-US');
+
+    const stats = Array.isArray(m.stats) ? m.stats : [];
+    const top = Array.isArray(m.top) ? m.top : [];
+    const tops = Object.fromEntries(top.map(x => [x.sym, x]));
+    const totalTrades = stats.reduce((a, x) => a + (x.trades || 0), 0);
+    const nowT = performance.now();
+    if (state.lastTrades != null && nowT > state.lastTradesAt) {
+      const rate = (totalTrades - state.lastTrades) / ((nowT - state.lastTradesAt) / 1000);
+      if (rate >= 0) $('tps').textContent = Math.round(rate).toLocaleString('en-US');
+    }
+    state.lastTrades = totalTrades; state.lastTradesAt = nowT;
+
+    renderChips(stats);
+    renderKpis(stats.find(x => x.sym === state.sym), tops[state.sym]);
+    renderWatch(stats, tops);
+    renderTape(Array.isArray(m.tape) ? m.tape : []);
+    renderNotional(stats);
+    $('chartTitle').textContent = `${state.sym || '–'} · ${state.bar >= 60 ? state.bar / 60 + 'm' : state.bar + 's'} bars`;
+    drawChart();
+  }
+
+  function renderChips(stats) {
+    const el = $('chips');
+    const syms = stats.map(x => x.sym);
+    if (el.dataset.syms !== syms.join(',')) {
+      el.dataset.syms = syms.join(',');
+      el.innerHTML = syms.map(s => `<button class="chip" data-sym="${esc(s)}">${esc(s)}</button>`).join('');
+    }
+    el.querySelectorAll('.chip').forEach(b => b.classList.toggle('on', b.dataset.sym === state.sym));
+  }
+
+  function renderKpis(s, t) {
+    if (!s) return;
+    $('kSym').textContent = `${s.sym} · ${s.updTime || ''}`;
+    $('kLast').textContent = fx(s.lastPx);
+    $('kLast').className = 'v ' + cls(s.lastPx - s.open);
+    $('kChg').innerHTML = `<span class="${cls(s.chgPct)}">${signed(s.chgPct)}%</span>`;
+    $('kOpen').textContent = `${signed(s.lastPx - s.open)} · open ${fx(s.open)}`;
+    $('kVwap').textContent = fx(s.vwap);
+    const dv = 1e4 * (s.lastPx - s.vwap) / s.vwap;
+    $('kVwapD').innerHTML = `last vs vwap <span class="${cls(dv)}">${signed(dv, 1)} bp</span>`;
+    $('kRange').textContent = `${fx(s.low)} – ${fx(s.high)}`;
+    const pos = s.high > s.low ? 100 * (s.lastPx - s.low) / (s.high - s.low) : 50;
+    $('kRangeS').textContent = `last at ${pos.toFixed(0)}% of range`;
+    $('kVol').textContent = compact(s.volume);
+    $('kTrades').textContent = `${(s.trades || 0).toLocaleString('en-US')} trades · $${compact(s.notional)}`;
+    if (t) {
+      $('kSpread').textContent = fx(t.spreadBps, 1) + ' bp';
+      $('kBook').textContent = `${fx(t.bid)} × ${fx(t.ask)}  (${compact(t.bsize)} / ${compact(t.asize)})`;
+    }
+  }
+
+  function renderWatch(stats, tops) {
+    const tb = $('watch').querySelector('tbody');
+    if (!stats.length) { tb.innerHTML = `<tr><td colspan="7" class="empty">Waiting for ticks…</td></tr>`; return; }
+    if (tb.dataset.syms !== stats.map(x => x.sym).join(',')) {
+      tb.dataset.syms = stats.map(x => x.sym).join(',');
+      tb.innerHTML = stats.map(x => `<tr data-sym="${esc(x.sym)}"><td>${esc(x.sym)}</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`).join('');
+    }
+    stats.forEach(x => {
+      const tr = tb.querySelector(`tr[data-sym="${CSS.escape(x.sym)}"]`);
+      if (!tr) return;
+      const t = tops[x.sym] || {};
+      const c = tr.children;
+      tr.classList.toggle('sel', x.sym === state.sym);
+      const prev = state.prevLast[x.sym];
+      if (prev != null && prev !== x.lastPx) {
+        c[1].classList.remove('flash-up', 'flash-down'); void c[1].offsetWidth;
+        c[1].classList.add(x.lastPx > prev ? 'flash-up' : 'flash-down');
+      }
+      state.prevLast[x.sym] = x.lastPx;
+      c[1].textContent = fx(x.lastPx);
+      c[2].textContent = signed(x.chgPct); c[2].className = cls(x.chgPct);
+      c[3].textContent = fx(x.vwap);
+      c[4].textContent = fx(t.bid); c[5].textContent = fx(t.ask);
+      c[6].textContent = fx(t.spreadBps, 1);
+    });
+  }
+
+  function renderTape(tape) {
+    const tb = $('tape').querySelector('tbody');
+    if (!tape.length) { tb.innerHTML = `<tr><td colspan="6" class="empty">No prints yet</td></tr>`; return; }
+    tb.innerHTML = tape.map(x => `<tr><td class="muted">${esc(x.time)}</td><td>${esc(x.sym)}</td>` +
+      `<td class="side-${esc(x.side)}">${esc(String(x.side).toUpperCase())}</td><td>${fx(x.price)}</td>` +
+      `<td>${(x.size || 0).toLocaleString('en-US')}</td><td class="muted">${compact(x.price * x.size)}</td></tr>`).join('');
+  }
+
+  function renderNotional(stats) {
+    const el = $('notional');
+    if (!stats.length) { el.innerHTML = `<div class="empty">Waiting for ticks…</div>`; return; }
+    const rows = [...stats].sort((a, b) => b.notional - a.notional);
+    const max = rows[0].notional || 1;
+    if (el.dataset.order !== rows.map(x => x.sym).join(',')) {
+      el.dataset.order = rows.map(x => x.sym).join(',');
+      el.innerHTML = rows.map(x => `<div class="brow" data-sym="${esc(x.sym)}"><span>${esc(x.sym)}</span><div class="btrack"><div class="bfill"></div></div><span class="bv"></span></div>`).join('');
+    }
+    rows.forEach(x => {
+      const r = el.querySelector(`.brow[data-sym="${CSS.escape(x.sym)}"]`);
+      r.querySelector('.bfill').style.width = (100 * x.notional / max).toFixed(1) + '%';
+      r.querySelector('.bfill').style.opacity = x.sym === state.sym ? 1 : 0.55;
+      r.querySelector('.bv').textContent = '$' + compact(x.notional);
+    });
+  }
+
+  // ---------- canvas candlestick chart ----------
+  const canvas = $('chart');
+  function niceStep(range, target) {
+    const raw = range / target, mag = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / mag;
+    return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * mag;
+  }
+  function drawChart() {
+    const m = state.snap; if (!m) return;
+    const allBars = Array.isArray(m.bars) ? m.bars : [];
+    const css = getComputedStyle(document.documentElement), col = n => css.getPropertyValue(n).trim();
+    const dpr = window.devicePixelRatio || 1, w = canvas.clientWidth, h = canvas.clientHeight;
+    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); }
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+    const mono = '11px "IBM Plex Mono", ui-monospace, monospace';
+    ctx.font = mono;
+    if (!allBars.length) { ctx.fillStyle = col('--muted'); ctx.textAlign = 'center'; ctx.fillText('Waiting for ticks…', w / 2, h / 2); $('legend').innerHTML = ''; return; }
+
+    const maxBars = Math.max(30, Math.floor((w - 64) / 6));
+    const bars = allBars.slice(-maxBars);
+    const st = (m.stats || []).find(x => x.sym === state.sym);
+    const padR = 64, padT = 30, padB = 22, plotW = w - padR;
+    const volH = Math.round((h - padT - padB) * 0.18), priceH = h - padT - padB - volH - 8;
+    const N = Math.max(bars.length, 40), slot = plotW / N, bodyW = Math.max(1, Math.min(14, slot * 0.64));
+    const x = i => plotW - (bars.length - i - 0.5) * slot;
+    let lo = Math.min(...bars.map(b => b.low)), hi = Math.max(...bars.map(b => b.high));
+    if (st && isFinite(st.vwap) && st.vwap > lo - (hi - lo) && st.vwap < hi + (hi - lo)) { lo = Math.min(lo, st.vwap); hi = Math.max(hi, st.vwap); }
+    if (hi - lo < 1e-9) { hi += 0.5; lo -= 0.5; }
+    const padP = (hi - lo) * 0.08; lo -= padP; hi += padP;
+    const y = p => padT + (hi - p) / (hi - lo) * priceH;
+
+    // grid + price axis
+    const step = niceStep(hi - lo, 6);
+    ctx.strokeStyle = col('--grid'); ctx.lineWidth = 1; ctx.fillStyle = col('--muted'); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    for (let p = Math.ceil(lo / step) * step; p <= hi; p += step) {
+      const yy = Math.round(y(p)) + 0.5;
+      ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(plotW, yy); ctx.stroke();
+      ctx.fillText(p.toFixed(step < 0.1 ? 2 : step < 1 ? 2 : 1), plotW + 8, yy);
+    }
+    // time axis
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    const every = Math.max(1, Math.ceil(80 / slot));
+    for (let i = bars.length - 1; i >= 0; i -= every) {
+      const xx = Math.round(x(i)) + 0.5;
+      ctx.strokeStyle = col('--grid'); ctx.beginPath(); ctx.moveTo(xx, padT); ctx.lineTo(xx, padT + priceH + 8 + volH); ctx.stroke();
+      ctx.fillStyle = col('--muted'); ctx.fillText(String(bars[i].bar).slice(0, 8), xx, h - 6);
+    }
+    // volume
+    const maxV = Math.max(...bars.map(b => b.volume)) || 1, vTop = padT + priceH + 8;
+    bars.forEach((b, i) => {
+      const vh = (b.volume / maxV) * volH;
+      ctx.fillStyle = b.close >= b.open ? col('--up-soft') : col('--down-soft');
+      ctx.fillRect(x(i) - bodyW / 2, vTop + volH - vh, bodyW, vh);
+    });
+    // candles
+    bars.forEach((b, i) => {
+      const c = b.close >= b.open ? col('--up') : col('--down');
+      const xx = Math.round(x(i)) + 0.5;
+      ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(xx, y(b.high)); ctx.lineTo(xx, y(b.low)); ctx.stroke();
+      const top = y(Math.max(b.open, b.close)), bh = Math.max(1, Math.abs(y(b.open) - y(b.close)));
+      ctx.fillRect(xx - bodyW / 2, top, bodyW, bh);
+    });
+    // session VWAP
+    if (st && isFinite(st.vwap) && st.vwap >= lo && st.vwap <= hi) {
+      const yy = Math.round(y(st.vwap)) + 0.5;
+      ctx.strokeStyle = col('--vwap'); ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(plotW, yy); ctx.stroke(); ctx.setLineDash([]);
+      label(ctx, st.vwap.toFixed(2), plotW, yy, col('--vwap'));
+    }
+    // last price
+    const last = bars[bars.length - 1], lc = last.close >= last.open ? col('--up') : col('--down');
+    const ly = Math.round(y(last.close)) + 0.5;
+    ctx.strokeStyle = lc; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(0, ly); ctx.lineTo(plotW, ly); ctx.stroke(); ctx.setLineDash([]);
+    label(ctx, last.close.toFixed(2), plotW, ly, lc);
+    // crosshair
+    let shown = last;
+    if (state.hover >= 0 && state.hover < bars.length) {
+      shown = bars[state.hover];
+      const xx = Math.round(x(state.hover)) + 0.5;
+      ctx.strokeStyle = col('--faint'); ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(xx, padT); ctx.lineTo(xx, vTop + volH); ctx.stroke(); ctx.setLineDash([]);
+    }
+    canvas._layout = { plotW, slot, n: bars.length };
+    const chg = shown.close - shown.open;
+    $('legend').innerHTML = `<span><b>${esc(state.sym)}</b> ${esc(String(shown.bar).slice(0, 8))}</span>` +
+      `<span>O <b>${fx(shown.open)}</b></span><span>H <b>${fx(shown.high)}</b></span><span>L <b>${fx(shown.low)}</b></span>` +
+      `<span>C <b class="${cls(chg)}">${fx(shown.close)}</b></span><span>V <b>${compact(shown.volume)}</b></span>` +
+      (st ? `<span style="color:var(--vwap)">VWAP <b style="color:var(--vwap)">${fx(st.vwap)}</b></span>` : '');
+  }
+  function label(ctx, text, x0, yy, color) {
+    ctx.fillStyle = color; ctx.fillRect(x0 + 2, yy - 9, 60, 18);
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(text, x0 + 7, yy);
+  }
+  canvas.addEventListener('mousemove', e => {
+    const L = canvas._layout; if (!L) return;
+    const r = canvas.getBoundingClientRect(), mx = e.clientX - r.left;
+    const i = L.n - 1 - Math.floor((L.plotW - mx) / L.slot);
+    state.hover = (mx <= L.plotW && i >= 0 && i < L.n) ? i : -1; drawChart();
+  });
+  canvas.addEventListener('mouseleave', () => { state.hover = -1; drawChart(); });
+  new ResizeObserver(() => drawChart()).observe(canvas);
+
+  // ---------- interactions ----------
+  function selectSym(s) {
+    if (!s || s === state.sym) return;
+    state.sym = s; state.hover = -1; sendPrefs();
+    if (state.mode === 'demo') render(simSnapshot());
+    else if (state.snap) render({ ...state.snap, bars: [] });
+  }
+  $('chips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) selectSym(b.dataset.sym); });
+  $('watch').addEventListener('click', e => { const tr = e.target.closest('tr[data-sym]'); if (tr) selectSym(tr.dataset.sym); });
+  $('barSeg').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    state.bar = Number(b.dataset.bar);
+    $('barSeg').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    sendPrefs();
+    if (state.mode === 'demo') render(simSnapshot());
+  });
+  $('themeBtn').addEventListener('click', () => {
+    const root = document.documentElement;
+    const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    root.dataset.theme = dark ? 'light' : 'dark';
+    try { localStorage.setItem('tick-theme', root.dataset.theme); } catch (e) {}
+    drawChart();
+  });
+  try { const t = localStorage.getItem('tick-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  setInterval(() => { $('clock').textContent = msToTime(msOfDay(), false); }, 250);
+
+  // ---------- boot ----------
+  const forceDemo = new URLSearchParams(location.search).has('demo');
+  if (forceDemo || !/^https?:$/.test(location.protocol)) startDemo(); else connect();
+})();
+</script>
+</body>
+</html>
