@@ -39,8 +39,8 @@ args:.Q.opt .z.x
  }
 
 .z.ts:{.feed.tick[]}
-.z.pc:{[h] -2 "feed: tickerplant disconnected, exiting"; exit 0}
-system "t ",string .feed.rate
+.z.pc:{[h] if[h=.feed.h; -2 "feed: tickerplant disconnected, exiting"; exit 0]}
+system "t ",string .feed.rate;
 
 -1 (string .z.p)," feed: publishing ",string[count .feed.syms]," symbols to tp:",string[.feed.tpPort],
    " every ",string[.feed.rate],"ms";
