@@ -4,7 +4,6 @@
 / Subscribes to trades and quotes and maintains, incrementally, the analytics
 / a dashboard polls constantly: session OHLC, volume, notional, VWAP and the
 / latest top of book. Queries are O(number of symbols), not O(number of ticks).
-/
 / usage:  q src/rte.q -p 5013 [-tp 5010]
 / =============================================================================
 

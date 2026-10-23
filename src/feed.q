@@ -5,7 +5,6 @@
 / publishes it asynchronously to the tickerplant. Replace this process with a
 / real feed handler (exchange, broker API, Kafka, websocket ...) to go live:
 / the rest of the stack does not change.
-/
 / usage:  q src/feed.q [-tp 5010] [-rate 100] [-batch 15] [-sigma 0.0003]
 /                      [-syms AAPL,MSFT,NVDA]
 / =============================================================================
