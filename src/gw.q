@@ -74,7 +74,7 @@ getDates:{[] .gw.call[`hdb; (`.api.dates; ::)]}
  }
 
 .z.ts:{@[.gw.push; ::; {[e] -2 "gw: push error: ",e}]}
-system "t ",string .gw.num[`push;500]
+system "t ",string .gw.num[`push;500];
 
 .z.pc:{[h] .gw.h[where .gw.h=h]:0Ni}
 

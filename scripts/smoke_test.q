@@ -14,7 +14,9 @@ s1:h"getStats[]"
 check["real-time engine returns stats"; (98=type s1) and 0<count s1]
 system "sleep 2"
 s2:h"getStats[]"
-check["trade count increases (ticks are flowing)"; (sum s2`trades)>sum s1`trades]
+ntrades:{$[98=type x; sum x`trades; 0]}
+check["trade count increases (ticks are flowing)"; (ntrades s2)>ntrades s1]
+if[not 98=type s2; -1 "stopping: no stats from the real-time engine (see logs/rte.log)"; exit 1]
 sym:first s2`sym
 b:h(`getBars; sym; 5; 50)
 check["rdb returns OHLCV bars for ",string sym; (98=type b) and 0<count b]

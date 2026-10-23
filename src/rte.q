@@ -26,9 +26,9 @@ args:.Q.opt .z.x
   s:select open:first price, high:max price, low:min price, lastPx:last price,
       volume:sum size, notional:sum price*size, trades:count i, updTime:last time
       by sym from x;
-  prev:`sym xkey select sym, oOpen:open, oHigh:high, oLow:low,
+  old:`sym xkey select sym, oOpen:open, oHigh:high, oLow:low,
       oVol:volume, oNot:notional, oN:trades from 0!.rte.stats;
-  m:s lj prev;
+  m:s lj old;
   m:update open:open^oOpen, high:high|oHigh, low:low^low&oLow,
       volume:volume+0^oVol, notional:notional+0f^oNot, trades:trades+0^oN from m;
   `.rte.stats upsert delete oOpen, oHigh, oLow, oVol, oNot, oN from m;

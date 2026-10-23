@@ -56,4 +56,4 @@ upd:insert
  }
 
 .rdb.init[]
-.z.pc:{[h] -2 (string .z.p)," rdb: connection ",string[h]," closed"}
+.z.pc:{[h] if[h>0; -2 (string .z.p)," rdb: connection ",string[h]," closed"]}

@@ -27,7 +27,7 @@ args:.Q.opt .z.x
 / dates available in the HDB
 .api.dates:{[] @[value;`date;`date$()]}
 
-system "mkdir -p ",.hdb.dir
-system "l ",.hdb.dir
+system "mkdir -p ",.hdb.dir;
+system "l ",.hdb.dir;
 
 -1 (string .z.p)," hdb: ready on port ",string[system "p"]," | dates: ",string count .api.dates[];
