@@ -4,6 +4,8 @@ End-to-end real-time tick data platform built on **kdb+/q**: tickerplant, real-t
 
 ![kdb+ real-time tick dashboard](docs/screenshot.png)
 
+**▶ [Live demo](https://matthieu-briche.github.io/kdb-realtime-tick-dashboard/web/index.html?demo)**: runs in your browser, no install (simulated prices).
+
 ## Highlights
 
 - **Classic kdb+tick architecture**, written from scratch and commented: feed → tickerplant → RDB / RTE → HDB, with a single gateway in front.
@@ -51,7 +53,7 @@ cd kdb-realtime-tick-dashboard
 ./scripts/start.sh
 ```
 
-Open **http://localhost:5020/index.html**. Prices start moving immediately.
+Once the stack is running, open `http://localhost:5020/index.html` on the same machine. Prices start moving immediately.
 
 ```bash
 q scripts/smoke_test.q      # end-to-end checks against the running stack
@@ -59,7 +61,7 @@ tail -f logs/*.log          # follow every process
 ./scripts/stop.sh           # stop everything
 ```
 
-No kdb+ licence at hand? Open `web/index.html` directly in a browser (or add `?demo` to the URL): the dashboard runs on an in-browser simulator with the exact same data shape.
+No kdb+ licence at hand? Try the [live demo](https://matthieu-briche.github.io/kdb-realtime-tick-dashboard/web/index.html?demo), or open `web/index.html` directly in a browser (or add `?demo` to the URL): the dashboard runs on an in-browser simulator with the exact same data shape.
 
 ### Configuration
 
